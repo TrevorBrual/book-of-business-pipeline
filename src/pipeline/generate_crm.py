@@ -56,7 +56,6 @@ def make_clients(n: int, advisors: pd.DataFrame, rng) -> pd.DataFrame:
 
 def make_holdings(clients: pd.DataFrame, rng) -> pd.DataFrame:
     rows = []
-    hid = 1
     for client_id in clients["client_id"]:
         for _ in range(int(rng.integers(1, 6))):
             ticker = str(rng.choice(list(TICKERS)))
