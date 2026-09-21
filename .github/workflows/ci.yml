@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint
+        run: ruff check src/ tests/
+
+      - name: Test
+        run: pytest -v
+
+      - name: Run pipeline
+        run: |
+          python -m src.pipeline.generate_crm
+          python -m src.pipeline.extract
+          python -m src.pipeline.load
+          python -m src.pipeline.transform
+
+      - name: Data quality report
+        run: python -m src.pipeline.dq || true
