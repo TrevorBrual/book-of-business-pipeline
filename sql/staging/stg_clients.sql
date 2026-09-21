@@ -15,11 +15,13 @@ SELECT
     *,
         postal_code IS NOT NULL
         AND regexp_matches(postal_code, '^[A-Z][0-9][A-Z] [0-9][A-Z][0-9]$') AS postal_code_valid,
-    row_number() OVER (
+        row_number() OVER (
         PARTITION BY client_id
         ORDER BY
-            (email IS NOT NULL) ASC,
-            regexp_matches(postal_code, '^[A-Z][0-9][A-Z] [0-9][A-Z][0-9]$') DESC,
-            first_name ASC
+            CASE WHEN email IS NOT NULL THEN 0 ELSE 1 END,
+            CASE WHEN postal_code IS NOT NULL
+                  AND regexp_matches(postal_code, '^[A-Z][0-9][A-Z] [0-9][A-Z][0-9]$')
+                 THEN 0 ELSE 1 END,
+            first_name
     ) AS dedupe_rank
 FROM typed;

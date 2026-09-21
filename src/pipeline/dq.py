@@ -25,7 +25,6 @@ def load_checks(path: Path = CHECKS_PATH) -> list[dict]:
 def run_check(con: duckdb.DuckDBPyConnection, check: dict, run_id: str) -> dict:
     try:
         failures = con.execute(check["query"]).df()
-        error = None
     except duckdb.Error as exc:
         log.error("check %s failed to execute: %s", check["name"], exc)
         return {
