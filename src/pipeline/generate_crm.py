@@ -8,7 +8,7 @@ import pandas as pd
 
 RAW = Path("data/raw")
 SEED = 20260919
-AS_OF = "2026-09-19"
+AS_OF = "2026-09-18"
 
 FIRST = ["Amara", "Devin", "Priya", "Marcus", "Chen", "Sofia", "Liam", "Nadia"]
 LAST = ["Okafor", "Reyes", "Sharma", "Nguyen", "Tremblay", "Baptiste", "Kowalski"]
