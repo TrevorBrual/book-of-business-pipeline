@@ -1,0 +1,118 @@
+- name: client_id_unique
+  severity: critical
+  description: Duplicate client records inflate AUM and split a client's holdings across rows.
+  query: |
+    SELECT client_id AS failing_key
+    FROM staging.stg_clients
+    GROUP BY client_id
+    HAVING count(*) > 1
+
+- name: client_email_present
+  severity: warning
+  description: A client with no email cannot receive statements or be contacted by their advisor.
+  query: |
+    SELECT client_id AS failing_key
+    FROM core.dim_client
+    WHERE email IS NULL
+
+- name: client_postal_code_valid
+  severity: warning
+  description: Malformed postal codes break mail delivery and provincial tax reporting.
+  query: |
+    SELECT client_id AS failing_key
+    FROM core.dim_client
+    WHERE NOT postal_code_valid
+
+- name: client_dob_not_future
+  severity: critical
+  description: A future birthdate indicates corrupt entry and breaks age-based suitability rules.
+  query: |
+    SELECT client_id AS failing_key
+    FROM core.dim_client
+    WHERE date_of_birth > CURRENT_DATE
+
+- name: client_advisor_fk
+  severity: critical
+  description: A client assigned to a nonexistent advisor has no one accountable for the relationship.
+  query: |
+    SELECT c.client_id AS failing_key
+    FROM core.dim_client c
+    LEFT JOIN core.dim_advisor a USING (advisor_id)
+    WHERE a.advisor_id IS NULL
+
+- name: holding_client_fk
+  severity: critical
+  description: Orphaned holdings are assets under management that roll up to no client.
+  query: |
+    SELECT holding_id AS failing_key
+    FROM core.fct_holding
+    WHERE orphan_client
+
+- name: holding_currency_consistent
+  severity: critical
+  description: Currency contradicting the listing exchange misstates market value by the FX rate, roughly 40 percent.
+  query: |
+    SELECT holding_id AS failing_key
+    FROM core.fct_holding
+    WHERE currency_mismatch
+
+- name: holding_quantity_positive
+  severity: critical
+  description: Negative share counts produce negative market values and corrupt portfolio totals.
+  query: |
+    SELECT holding_id AS failing_key
+    FROM core.fct_holding
+    WHERE negative_quantity
+
+- name: holding_valued
+  severity: critical
+  description: A holding with no market value is silently excluded from AUM reporting.
+  query: |
+    SELECT holding_id AS failing_key
+    FROM core.fct_holding
+    WHERE market_value_cad IS NULL
+
+- name: holding_id_unique
+  severity: critical
+  description: Duplicate holding IDs double-count positions in every downstream aggregate.
+  query: |
+    SELECT holding_id AS failing_key
+    FROM core.fct_holding
+    GROUP BY holding_id
+    HAVING count(*) > 1
+
+- name: fx_rate_fresh
+  severity: warning
+  description: A rate carried forward more than four days means valuations rest on stale market data.
+  query: |
+    SELECT CAST(h.holding_id AS VARCHAR) AS failing_key
+    FROM core.fct_holding h
+    JOIN staging.stg_fx f ON f.rate_date = h.as_of_date
+    WHERE f.is_carried_forward
+      AND h.as_of_date - (
+        SELECT max(rate_date) FROM staging.stg_fx WHERE NOT is_carried_forward
+      ) > 4
+
+- name: fx_rate_plausible
+  severity: critical
+  description: A USD/CAD rate outside 1.0 to 2.0 indicates a bad feed and would corrupt every USD valuation.
+  query: |
+    SELECT CAST(rate_date AS VARCHAR) AS failing_key
+    FROM staging.stg_fx
+    WHERE usd_cad NOT BETWEEN 1.0 AND 2.0
+
+- name: price_present_for_holdings
+  severity: critical
+  description: A holding whose ticker has no price on its as-of date cannot be valued.
+  query: |
+    SELECT h.holding_id AS failing_key
+    FROM core.fct_holding h
+    WHERE h.close_price IS NULL
+
+- name: client_row_count_plausible
+  severity: warning
+  description: A client count far outside the expected range suggests a partial or duplicated load.
+  query: |
+    SELECT 'row_count' AS failing_key
+    FROM core.dim_client
+    HAVING count(*) NOT BETWEEN 400 AND 800
